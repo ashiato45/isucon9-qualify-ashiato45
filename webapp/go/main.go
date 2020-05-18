@@ -18,11 +18,14 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
+	"github.com/sirupsen/logrus"
 	goji "goji.io"
 	_ "goji.io/middleware"
 	"goji.io/pat"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var accLog = logrus.New()
 
 const (
 	sessionName = "session_isucari"
@@ -272,17 +275,34 @@ type resSetting struct {
 // Referred to https://github.com/zenazn/goji/blob/master/web/middleware/logger.go#L26-L46
 func mylogger(inner http.Handler) http.Handler {
 	mw := func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf("Started:\tmethod:%s\tURL:%s\n", r.Method, r.URL)
+		accLog.WithFields(logrus.Fields{
+			"method": r.Method,
+			"url":    r.URL.Path,
+		}).Info("Start Access")
 		t1 := time.Now()
 		inner.ServeHTTP(w, r)
 		t2 := time.Now()
-		fmt.Printf("Finished:\tmethod:%s\tURL:%s\telapsed:%s\n", r.Method, r.URL, t2.Sub(t1))
+		accLog.WithFields(logrus.Fields{
+			"method":  r.Method,
+			"url":     r.URL.Path,
+			"elapsed": t2.Sub(t1) / 1000,
+		}).Info("Finish Access")
 	}
 	return http.HandlerFunc(mw)
 }
 
 func init() {
 	store = sessions.NewCookieStore([]byte("abc"))
+
+	// logrus setting
+	accLog.SetFormatter(&logrus.JSONFormatter{})
+	accLog.SetOutput(os.Stdout)
+	file, err := os.OpenFile("access.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err == nil {
+		accLog.Out = file
+	} else {
+		accLog.Info("Failed to log to file, using default stderr")
+	}
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
