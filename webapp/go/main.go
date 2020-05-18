@@ -19,6 +19,7 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
 	goji "goji.io"
+	_ "goji.io/middleware"
 	"goji.io/pat"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -268,6 +269,18 @@ type resSetting struct {
 	Categories        []Category `json:"categories"`
 }
 
+// Referred to https://github.com/zenazn/goji/blob/master/web/middleware/logger.go#L26-L46
+func mylogger(inner http.Handler) http.Handler {
+	mw := func(w http.ResponseWriter, r *http.Request) {
+		fmt.Printf("Started:\tmethod:%s\tURL:%s\n", r.Method, r.URL)
+		t1 := time.Now()
+		inner.ServeHTTP(w, r)
+		t2 := time.Now()
+		fmt.Printf("Finished:\tmethod:%s\tURL:%s\telapsed:%s\n", r.Method, r.URL, t2.Sub(t1))
+	}
+	return http.HandlerFunc(mw)
+}
+
 func init() {
 	store = sessions.NewCookieStore([]byte("abc"))
 
@@ -354,6 +367,10 @@ func main() {
 	mux.HandleFunc(pat.Get("/transactions/:transaction_id"), getIndex)
 	mux.HandleFunc(pat.Get("/users/:user_id"), getIndex)
 	mux.HandleFunc(pat.Get("/users/setting"), getIndex)
+
+	// Logging
+	mux.Use(mylogger)
+
 	// Assets
 	mux.Handle(pat.Get("/*"), http.FileServer(http.Dir("../public")))
 	log.Fatal(http.ListenAndServe(":8000", mux))
