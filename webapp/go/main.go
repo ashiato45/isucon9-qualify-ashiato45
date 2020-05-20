@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	crand "crypto/rand"
 	"database/sql"
 	"encoding/json"
@@ -26,6 +27,7 @@ import (
 )
 
 var accLog = logrus.New()
+var executedIndex = bytes.NewBufferString("")
 
 const (
 	sessionName = "session_isucari"
@@ -309,6 +311,9 @@ func init() {
 	templates = template.Must(template.ParseFiles(
 		"../public/index.html",
 	))
+
+	templates.ExecuteTemplate(executedIndex, "index.html", struct{}{})
+	// executedIndex = templates.ExecuteTemplate(w, "index.html", struct{}{})
 }
 
 func main() {
@@ -486,7 +491,8 @@ func getShipmentServiceURL() string {
 }
 
 func getIndex(w http.ResponseWriter, r *http.Request) {
-	templates.ExecuteTemplate(w, "index.html", struct{}{})
+	w.Write(executedIndex.Bytes())
+	// templates.ExecuteTemplate(w, "index.html", struct{}{})
 }
 
 func postInitialize(w http.ResponseWriter, r *http.Request) {
